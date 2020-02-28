@@ -8,5 +8,6 @@ docker run -it --rm \
     -e AWS_SESSION_TOKEN \
     -e AWS_DEFAULT_REGION \
     -v ~/:/home \
+    -u $(id -u):$(id -g) \
     --name get-secret \
     get-secret python build_npmrc.py $1
