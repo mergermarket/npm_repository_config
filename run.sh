@@ -10,4 +10,4 @@ docker run -it --rm \
     -v ~/:/home \
     -u $(id -u):$(id -g) \
     --name get-secret \
-    get-secret python build_npmrc.py
+    get-secret python build_npmrc.py $1

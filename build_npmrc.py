@@ -1,10 +1,8 @@
 import sys
 import boto3
 import json
-import requests
 
 from botocore.exceptions import ClientError, BotoCoreError
-from requests import RequestException
 from string import Template
 from urllib.parse import urlparse
 
@@ -37,42 +35,35 @@ def save_npmrc(data):
     f.write(data)
     f.close()
 
-def get_env():
-    try:
-        r = requests.get("http://169.254.169.254/latest/dynamic/instance-identity/document")
-        r.raise_for_status()
-    except RequestException as e:
-        print(e)
-        return None
+def get_env(filepath):
     
-    try:
-        response_json = r.json()
-    except RequestException as e:
-        print(e)
-        return None
-    
-    region = response_json.get('region')
-    instance_id = response_json.get('instanceId')
+    with open(filepath) as json_file:
+        data = json.load(json_file)
+        region = data['region']
+        instance_id = data['instanceId']
 
+    print(region)
+    print(instance_id)
     if not (region and instance_id):
         return None
     
     try:
-        ec2 = boto3.resource('ec2', region_name=region)
+        ec2 = boto3.resource('ec2')
         instance = ec2.Instance(instance_id)
         tags = instance.tags
     except (ValueError, ClientError, BotoCoreError) as e:
         print(e)
         return None
     
-    tags = tags or []
-    envs = [tag.get('Value') for tag in tags if tag.get('Key') == 'Environment']
+    print(tags)
+
+    envs = [tag.get('Value') for  tag in tags if tag.get('Key') == 'Environment']
     env = envs[0] if envs else None
     return env
-
+    
 
 def main():
-    env = get_env()
+    env = get_env(sys.argv[1])
     print('Env:{}'.format(env))
     key = "platform/{}/jenkins_npm_repository_config".format(env)
     print('Key:{}'.format(key))
