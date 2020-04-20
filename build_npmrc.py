@@ -70,7 +70,9 @@ def get_env():
 
 def main():
     env = get_env()
+    print('Env:{}'.format(env))
     key = "platform/{}/jenkins_npm_repository_config".format(env)
+    print('Key:{}'.format(key))
     secrets = json.loads(get_secrets(key))
  
     npmrc_string = ""
