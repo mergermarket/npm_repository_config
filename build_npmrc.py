@@ -1,7 +1,10 @@
 import sys
 import boto3
 import json
+import requests
 
+from botocore.exceptions import ClientError, BotoCoreError
+from requests import RequestException
 from string import Template
 from urllib.parse import urlparse
 
@@ -24,8 +27,41 @@ def save_npmrc(data):
     f.write(data)
     f.close()
 
+def get_env():
+    try:
+        r = requests.get("http://169.254.169.254/latest/dynamic/instance-identity/document")
+        r.raise_for_status()
+    except RequestException as e:
+        return None
+    
+    try:
+        response_json = r.json()
+    except RequestException as e:
+        return None
+    
+    region = response_json.get('region')
+    instance_id = response_json.get('instanceId')
+
+    if not (region and instance_id):
+        return None
+    
+    try:
+        ec2 = boto3.resource('ec2', region_name=region)
+        instance = ec2.Instance(instance_id)
+        tags = instance.tags
+    except (ValueError, ClientError, BotoCoreError) as e:
+        return None
+    
+    tags = tags or []
+    envs = [tag.get('Value') for  tag in tags if tag.get('Key') == 'Environment']
+    env = envs[0] if env else None
+    return env
+    
+
 def main():
-    secrets = json.loads(get_secrets(sys.argv[1]))
+    env = get_env()
+    key = "platform/{}/jenkins_npm_repository_config".format(env)
+    secrets = json.loads(get_secrets(key))
  
     npmrc_string = ""
 
