@@ -66,10 +66,10 @@ def get_env():
         return None
     
     tags = tags or []
-    envs = [tag.get('Value') for  tag in tags if tag.get('Key') == 'Environment']
-    env = envs[0] if env else None
+    envs = [tag.get('Value') for tag in tags if tag.get('Key') == 'Environment']
+    env = envs[0] if envs else None
     return env
-    
+
 
 def main():
     env = get_env()
