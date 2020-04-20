@@ -42,11 +42,13 @@ def get_env():
         r = requests.get("http://169.254.169.254/latest/dynamic/instance-identity/document")
         r.raise_for_status()
     except RequestException as e:
+        print(e)
         return None
     
     try:
         response_json = r.json()
     except RequestException as e:
+        print(e)
         return None
     
     region = response_json.get('region')
@@ -60,6 +62,7 @@ def get_env():
         instance = ec2.Instance(instance_id)
         tags = instance.tags
     except (ValueError, ClientError, BotoCoreError) as e:
+        print(e)
         return None
     
     tags = tags or []
