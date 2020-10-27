@@ -3,37 +3,36 @@ import boto3
 import json
 
 from botocore.exceptions import ClientError, BotoCoreError
-from string import Template
+from base64 import b64encode
 from urllib.parse import urlparse
 
 
 def get_secrets(secretId):
     client = boto3.client(service_name='secretsmanager')
-    get_secret_value_response = client.get_secret_value(SecretId=secretId)
-    return get_secret_value_response['SecretString']
+    return client.get_secret_value(SecretId=secretId)['SecretString']
 
 
-def build_npmrc(data, key):
-    msg = "registry=${url} \n_auth=""${token}"" \nalways-auth = true \n"
-    template = Template(msg)
-    return template.substitute(url=data[key]["url"], token=data[key]["token"])
+def build_npmrc(data):
+    return (
+        f"registry = {data['url']}\n"
+        f"username = {data['username']}\n"
+        f"_password = {b64encode(data['password'].encode('utf8')).decode('utf8')}\n"
+    )
 
 
-def build_scoped_npmrc(data, key):
-    msg = "${scope}:registry=${url}\n//${domain}/:_authToken=${token}"
-    template = Template(msg)
-    domain = urlparse(data[key]["url"])
-    return template.substitute(
-        scope=data[key]["scope"],
-        url=data[key]["url"],
-        token=data[key]["token"],
-        domain=domain.netloc)
+def build_scoped_npmrc(data):
+    domain = urlparse(data["url"])
+    return (
+        f"{data['scope']}:registry={data['url']}\n"
+        f"//{domain.netloc}/:_authToken={data['token']}\n"
+    )
 
 
 def save_npmrc(data):
     f = open("/home/.npmrc", "w+")
     f.write(data)
     f.close()
+
 
 def get_env(filepath):
     
@@ -42,8 +41,6 @@ def get_env(filepath):
         region = data['region']
         instance_id = data['instanceId']
 
-    print(region)
-    print(instance_id)
     if not (region and instance_id):
         return None
     
@@ -52,11 +49,8 @@ def get_env(filepath):
         instance = ec2.Instance(instance_id)
         tags = instance.tags
     except (ValueError, ClientError, BotoCoreError) as e:
-        print(e)
-        return None
+        raise Exception("could not get enviornment: " + str(e))
     
-    print(tags)
-
     envs = [tag.get('Value') for  tag in tags if tag.get('Key') == 'Environment']
     env = envs[0] if envs else None
     return env
@@ -64,21 +58,27 @@ def get_env(filepath):
 
 def main():
     env = get_env(sys.argv[1])
-    print('Env:{}'.format(env))
     key = "platform/{}/jenkins_npm_repository_config".format(env)
-    print('Key:{}'.format(key))
+
+    print(f"npm_repository_config: getting secret...", file=sys.stderr)
+
     secrets = json.loads(get_secrets(key))
  
+    print(f"npm_repository_config: generating config...", file=sys.stderr)
+
     npmrc_string = ""
 
     for key in secrets:
         if "scope" in secrets[key] and secrets[key]["scope"] != "":
-            npmrc_string += build_scoped_npmrc(secrets, key)
+            npmrc_string += build_scoped_npmrc(secrets[key])
         else:
-            npmrc_string += build_npmrc(secrets, key)
+            npmrc_string += build_npmrc(secrets[key])
+
+    print(f"npm_repository_config: writing config config...", file=sys.stderr)
 
     save_npmrc(npmrc_string)
-    print(npmrc_string)
+
+    print(f"npm_repository_config: done.", file=sys.stderr)
 
 
 main()
