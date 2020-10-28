@@ -17,6 +17,7 @@ def build_npmrc(data):
         f"registry = {data['url']}\n"
         f"username = {data['username']}\n"
         f"_password = {b64encode(data['password'].encode('utf8')).decode('utf8')}\n"
+	"always-auth = true\n"
     )
 
 
